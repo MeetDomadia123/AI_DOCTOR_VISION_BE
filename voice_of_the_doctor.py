@@ -117,6 +117,23 @@ from elevenlabs import ElevenLabs
 
 ELEVENLABS_API_KEY = os.environ.get("ELEVEN_API_KEY")
 
+# Optional: configure language-specific voices (put real IDs in your env)
+ELEVEN_VOICE_DEFAULT = os.environ.get("ELEVEN_VOICE_DEFAULT", "EXAVITQu4vr4xnSDxMaL")  # Rachel fallback
+ELEVEN_VOICE_HI = os.environ.get("ELEVEN_VOICE_HI")  # Hindi
+ELEVEN_VOICE_GU = os.environ.get("ELEVEN_VOICE_GU")  # Gujarati
+ELEVEN_VOICE_MR = os.environ.get("ELEVEN_VOICE_MR")  # Marathi
+
+VOICE_BY_LANG = {
+    "hi": ELEVEN_VOICE_HI,
+    "gu": ELEVEN_VOICE_GU,
+    "mr": ELEVEN_VOICE_MR,
+}
+
+def _pick_voice(lang_code: str | None) -> str:
+    if lang_code and VOICE_BY_LANG.get(lang_code):
+        return VOICE_BY_LANG[lang_code]
+    return ELEVEN_VOICE_DEFAULT
+
 # -------------------------------
 # gTTS FUNCTION (OLD + WORKING)
 # -------------------------------
@@ -143,26 +160,23 @@ def text_to_speech_with_gtts(input_text, output_filepath):
 # ---------------------------------------------
 # NEW FIXED ELEVENLABS SDK – FINAL WORKING CODE
 # ---------------------------------------------
-def text_to_speech_with_elevenlabs(input_text, output_filepath):
+def text_to_speech_with_elevenlabs(input_text, output_filepath, language="auto", voice_id=None):
     client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
+    v_id = voice_id or _pick_voice(language)
 
-    # NEW SDK FORMAT (REQUIRED — generate() NO LONGER EXISTS)
     audio_stream = client.text_to_speech.convert(
-        voice_id="EXAVITQu4vr4xnSDxMaL",        # Rachel (official ElevenLabs voice)
-        model_id="eleven_turbo_v2",
+        voice_id=v_id,
+        model_id="eleven_multilingual_v2",  # best for non‑English
         text=input_text,
         output_format="mp3_22050_32"
     )
-
-    # Save audio file (required in new SDK)
     with open(output_filepath, "wb") as f:
         for chunk in audio_stream:
             f.write(chunk)
 
-    # Auto-play audio (same logic)
     os_name = platform.system()
     try:
-        if os_name == "Darwin":  # macOS
+        if os_name == "Darwin":
             subprocess.run(['afplay', output_filepath])
         elif os_name == "Windows":
             subprocess.run(['powershell', '-c',
@@ -174,13 +188,12 @@ def text_to_speech_with_elevenlabs(input_text, output_filepath):
     except Exception as e:
         print("Audio playback error:", e)
 
+    return output_filepath
 
 
 # -------------------------------
 # TEST CALL
 # -------------------------------
-input_text = "Hi this is Ai with Meet, autoplay test using ElevenLabs!"
-text_to_speech_with_elevenlabs(
-    input_text,
-    output_filepath="elevenlabs_testing_autoplay.mp3"
-)
+if __name__ == "__main__":
+    input_text = "Hi this is Ai with Meet, autoplay test using ElevenLabs!"
+    text_to_speech_with_elevenlabs(input_text, output_filepath="elevenlabs_testing_autoplay.mp3")
